@@ -1,0 +1,7 @@
+{
+  "name": "kipper-laboratorio-tests",
+  "private": true,
+  "type": "module",
+  "scripts": {"test": "node verificar-ui.mjs"},
+  "devDependencies": {"linkedom": "0.18.12"}
+}

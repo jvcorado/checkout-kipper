@@ -1,0 +1,7 @@
+.laboratorio/
+**/__pycache__/
+.DS_Store
+laboratorio/node_modules/
+.env
+.env.*
+!.env.example
