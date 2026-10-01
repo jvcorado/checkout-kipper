@@ -1,8 +1,10 @@
 # Checkout Kipper
 
-Três serviços Java/Spring Boot com dados em memória e pagamento simulado.
-O estudante decide a arquitetura; o assistente implementa, testa e discute as
-consequências das decisões. Este projeto foi gerado no Spring Initializr.
+Neste checkpoint, defini a arquitetura de um checkout com três serviços
+Java/Spring Boot: **Pedidos, Estoque e Pagamentos**. Meu objetivo foi aplicar os
+conceitos de comunicação entre serviços, idempotência e recuperação de falhas.
+Optei por manter os dados em memória e simular o pagamento para concentrar o
+exercício na comunicação. Os três projetos têm como base o Spring Initializr.
 
 ## Testar pelo navegador
 
@@ -36,25 +38,26 @@ Os pedidos, reservas e cobranças vêm dos serviços Java reais. Uma camada loca
 controla o atraso das respostas e as falhas HTTP; o pagamento continua simulado.
 Veja o [guia do laboratório e os resultados esperados](laboratorio/README.md).
 
-## Escolha de arquitetura
+## Minha escolha de arquitetura
 
-**Orquestração com HTTP, coordenada por Pedidos.** Cada serviço mantém seus
-próprios dados e oferece operações por API. Pedidos não acessa a memória interna
-de Estoque nem de Pagamentos.
+Escolhi **orquestração com HTTP, coordenada por Pedidos**. Defini que cada serviço
+deve manter seus próprios dados e oferecer operações por API. Pedidos não acessa
+a memória interna de Estoque nem de Pagamentos.
 
-A justificativa do estudante, após a discussão, é a simplicidade de projetar o
-checkout sem mensageria ou filas. Em troca, ele aceita esperar as respostas dos
-serviços e tratar os casos em que uma resposta não chega. O timeout limita a
-espera, mas não revela o resultado nem resolve sozinho uma falha.
+Escolhi essa estratégia porque considero mais simples projetar o checkout sem
+mensageria ou filas neste primeiro desafio. Em troca, preciso lidar com a espera
+pelas respostas dos serviços e com os casos em que uma resposta não chega.
+O timeout limita a espera, mas não revela o resultado nem resolve sozinho uma
+falha.
 
-- **Benefício:** começar com três aplicações e chamadas HTTP diretas, sem instalar
-  um broker; a sequência de reserva, cobrança e eventual devolução fica explícita
-  no coordenador.
-- **Custo:** Pedidos precisa administrar espera, indisponibilidade, timeout e
-  recuperação. Neste projeto, isso exige guardar o estado e consultar as operações
-  remotas quando a resposta não chega. O custo das chamadas se acumula no fluxo.
-- **Alternativa escolhida pelo estudante para comparação:** orquestração por mensagens.
-  Pedidos continuaria como coordenador e enviaria
+- **Benefício que busquei:** começar com três aplicações e chamadas HTTP diretas,
+  sem instalar um broker, mantendo a sequência de reserva, cobrança e eventual
+  devolução explícita no coordenador.
+- **Custo que aceitei:** precisar tratar espera, indisponibilidade, timeout e
+  recuperação em Pedidos. Isso exige guardar o estado e consultar as operações
+  remotas quando a resposta não chega. O tempo das chamadas se acumula no fluxo.
+- **Alternativa que considerei:** orquestração por mensagens.
+  Nessa alternativa, eu manteria Pedidos como coordenador. Ele enviaria
   comandos de reserva e cobrança pelo broker e receberia resultados correlacionados.
   Mensagens duráveis poderiam aguardar consumidores indisponíveis, mas seria
   necessário operar o broker e tratar entrega repetida, publicação e consumo.
@@ -64,7 +67,9 @@ HTTP também permite responder que uma operação está pendente. Aqui a primeir
 requisição tenta concluir o fluxo; um resultado desconhecido recebe `202` e é
 recuperado em segundo plano. A escolha por HTTP não elimina essa possibilidade.
 
-## Decisões tomadas durante o exercício
+## Minhas decisões de arquitetura
+
+Defini as regras abaixo para orientar o fluxo da compra e o tratamento das falhas.
 
 | Tema | Decisão |
 | --- | --- |
@@ -79,9 +84,9 @@ recuperado em segundo plano. A escolha por HTTP não elimina essa possibilidade.
 | Outra compra legítima | Usar outra chave, mesmo que produto e quantidade sejam iguais |
 | Alternativa à implementação HTTP | Orquestração por mensagens, mantendo Pedidos como coordenador |
 
-A escolha, a alternativa, o benefício e o custo foram registrados com o estudante.
-As regras do checkout estão implementadas com HTTP; a alternativa por mensagens
-foi documentada para comparação e não exige instalar um broker neste projeto.
+Registrei minha escolha, a alternativa, o benefício e o custo para explicitar os
+motivos da arquitetura. Mantive HTTP como estratégia deste checkpoint e considerei
+mensagens como alternativa para comparação. O projeto não exige instalar um broker.
 
 ### Comparação com a alternativa
 
@@ -139,9 +144,11 @@ sequenceDiagram
     end
 ```
 
-O cenário de falta de estoque termina como `RECUSADO`, sem cobrar. Se a devolução
-não for confirmada, o pedido permanece `CANCELAMENTO_PENDENTE` e a recuperação tenta
-novamente. Só informamos `CANCELADO` depois que Estoque confirma a compensação.
+Defini que a falta de estoque encerra o pedido como `RECUSADO`, sem cobrar. Se a
+devolução não for confirmada, o pedido permanece `CANCELAMENTO_PENDENTE` e a
+recuperação tenta novamente. Para mim, solicitar a devolução ainda não significa
+concluir o cancelamento: o pedido só fica `CANCELADO` depois que Estoque confirma
+a compensação.
 
 ## Executar
 
@@ -290,6 +297,10 @@ calcula preços e não movimenta dinheiro.
 
 ## Idempotência e recuperação
 
+Decidi usar a chave de idempotência para distinguir uma repetição da mesma compra
+de uma nova intenção de compra. Também escolhi a recuperação automática por
+Pedidos: um timeout, por si só, não autoriza cancelar o pedido ou devolver o estoque.
+
 A chave enviada pelo cliente identifica uma intenção de compra. Pedidos associa
 essa chave a um único `pedidoId` **antes** das chamadas externas, de forma atômica.
 Esse ID é a chave interna da reserva e da cobrança. Nenhum ID é recriado durante
@@ -353,6 +364,9 @@ local. Os comandos e o alcance dessas verificações estão no
 [guia do laboratório](laboratorio/README.md#verificação).
 
 ## Limites deste checkpoint
+
+Mantive o escopo voltado à comunicação e ao tratamento das falhas entre os três
+serviços. Reconheço os seguintes limites dessa escolha:
 
 - Dados, associações das chaves e resultados existem apenas em memória. Reiniciar
   um serviço apaga seu estado e pode deixá-lo inconsistente com os outros; reinicie

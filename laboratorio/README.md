@@ -1,6 +1,7 @@
 # Laboratório de checkout
 
-Uma interface para testar as decisões do checkpoint com os três serviços Java.
+Meu objetivo com este laboratório é testar, na prática, as decisões de arquitetura
+que tomei no checkpoint e observar o comportamento dos três serviços Java.
 O painel não inventa pedidos nem altera o saldo diretamente: ele envia chamadas
 HTTP e consulta os registros de Pedidos, Estoque e Pagamentos.
 
